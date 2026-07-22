@@ -66,23 +66,23 @@ pipeline {
                 '''
             }
         }
-      stage('Push to ECR') {
+stage('Push to ECR') {
     steps {
-        sh '''
-        aws ecr get-login-password --region ap-southeast-1 | \
-        docker login \
-        --username AWS \
-        --password-stdin 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-ecr']]) {
+            sh '''
+            aws ecr get-login-password --region ap-southeast-1 | \
+            docker login --username AWS \
+            --password-stdin 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com
 
-        docker tag react-app:latest \
-        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+            docker tag react-app:latest \
+            808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
 
-        docker push \
-        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
-        '''
+            docker push \
+            808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+            '''
+        }
     }
 }
-
     }
 
     post {
