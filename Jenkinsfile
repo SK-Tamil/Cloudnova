@@ -57,7 +57,20 @@ pipeline {
             }
         }
 
+
     }
+
+
+        stage('Trivy Scan') {
+    steps {
+        sh '''
+        mkdir -p reports
+        trivy image react-app:latest > reports/trivy-report.txt
+        '''
+    }
+}
+    }    
+
 
     post {
         success {
