@@ -33,7 +33,12 @@ stage('Quality Gate') {
         }
     }
 }
-
+stage('Run Tests') {
+    steps {
+        echo 'Running React Tests...'
+        sh 'CI=true npm test -- --watchAll=false'
+    }
+}
         stage('Build React') {
             steps {
                 echo 'Building React application...'
