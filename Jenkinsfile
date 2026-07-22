@@ -98,6 +98,13 @@ stage('Deploy to Development') {
         '''
     }
 }
+stage('Manual Approval') {
+    steps {
+        timeout(time: 10, unit: 'MINUTES') {
+            input message: 'Deploy to Production?', ok: 'Deploy'
+        }
+    }
+}
     }
 
     post {
