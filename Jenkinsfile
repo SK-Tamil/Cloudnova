@@ -1,6 +1,4 @@
 pipeline {
-    agent any
-
     stages {
 
         stage('Checkout') {
@@ -57,22 +55,23 @@ pipeline {
             }
         }
 
-
-    }
-
-
         stage('Trivy Scan') {
-    steps {
-        sh '''
-        mkdir -p reports
-        trivy image react-app:latest > reports/trivy-report.txt
-        '''
-    }
-}
-    }    
+            steps {
+                echo 'Scanning Docker Image...'
+                sh '''
+                    mkdir -p reports
+                    trivy image react-app:latest > reports/trivy-report.txt
+                '''
+            }
+        }
 
+    }
 
     post {
+        always {
+            archiveArtifacts artifacts: 'reports/*', fingerprint: true
+        }
+
         success {
             echo 'Build Successful'
         }
