@@ -21,6 +21,7 @@ pipeline {
             steps {
                 script {
                     def scannerHome = tool 'SonarScanner'
+
                     withSonarQubeEnv('SonarQube') {
                         sh "${scannerHome}/bin/sonar-scanner"
                     }
@@ -69,21 +70,27 @@ pipeline {
 
         stage('Push to ECR') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-ecr']]) {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-ecr']
+                ]) {
+
                     sh '''
-                    aws ecr get-login-password --region ap-southeast-1 | \
-                    docker login --username AWS \
-                     --password-stdin 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com
-                    
-                    docker tag react-app:latest 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:${BUILD_NUMBER}
+                        aws ecr get-login-password --region ap-southeast-1 | \
+                        docker login --username AWS \
+                        --password-stdin 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com
 
-                    docker tag react-app:latest \
-                    808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+                        docker tag react-app:latest \
+                        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:${BUILD_NUMBER}
 
-                    docker push 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:${BUILD_NUMBER}
+                        docker tag react-app:latest \
+                        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
 
-                    docker push \
-                    808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+                        docker push \
+                        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:${BUILD_NUMBER}
+
+                        docker push \
+                        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
                     '''
                 }
             }
@@ -92,15 +99,16 @@ pipeline {
         stage('Deploy to Development') {
             steps {
                 sh '''
-                docker stop react-app || true
-                docker rm react-app || true
+                    docker stop react-app || true
+                    docker rm react-app || true
 
-                docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+                    docker pull \
+                    808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
 
-                docker run -d \
-                  --name react-app \
-                  -p 80:80 \
-                  808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+                    docker run -d \
+                      --name react-app \
+                      -p 80:80 \
+                      808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
                 '''
             }
         }
@@ -112,20 +120,33 @@ pipeline {
                 }
             }
         }
+        stage('Backup Current Production Image') {
+    steps {
+        sh '''
+            docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest || true
+
+            docker tag \
+            808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest \
+            808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:stable || true
+        '''
+    }
+}
 
         stage('Deploy to Production') {
             steps {
                 echo 'Deploying to Production...'
+
                 sh '''
-                docker stop react-prod || true
-                docker rm react-prod || true
+                    docker stop react-prod || true
+                    docker rm react-prod || true
 
-                docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+                    docker pull \
+                    808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
 
-                docker run -d \
-                  --name react-prod \
-                  -p 8081:80 \
-                  808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+                    docker run -d \
+                      --name react-prod \
+                      -p 8081:80 \
+                      808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
                 '''
             }
         }
@@ -133,17 +154,18 @@ pipeline {
         stage('Health Check') {
             steps {
                 echo 'Checking application health...'
+
                 sh '''
-                sleep 10
+                    sleep 10
 
-                STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:8081)
+                    STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:8081)
 
-                if [ "$STATUS" -eq 200 ]; then
-                    echo "Application is healthy"
-                else
-                    echo "Health check failed"
-                    exit 1
-                fi
+                    if [ "$STATUS" -eq 200 ]; then
+                        echo "Application is healthy"
+                    else
+                        echo "Health check failed"
+                        exit 1
+                    fi
                 '''
             }
         }
@@ -151,40 +173,38 @@ pipeline {
 
     post {
 
-    always {
-        archiveArtifacts artifacts: 'reports/*', fingerprint: true
+        always {
+            archiveArtifacts artifacts: 'reports/*', fingerprint: true
 
-        emailext(
-            subject: "Pipeline Finished - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            body: """
+            emailext(
+                subject: "Pipeline Finished - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
 Pipeline execution has finished.
 
-Job Name : ${env.JOB_NAME}
-Build Number : ${env.BUILD_NUMBER}
-
-Status : ${currentBuild.currentResult}
+Job Name      : ${env.JOB_NAME}
+Build Number  : ${env.BUILD_NUMBER}
+Status        : ${currentBuild.currentResult}
 
 Build URL:
 ${env.BUILD_URL}
 """,
-            to: "tamilselvanca20@nct.ac.in"
-        )
-    }
+                to: "tamilselvanca20@nct.ac.in"
+            )
+        }
 
-    success {
-        echo 'Build Successful'
+        success {
+            echo 'Build Successful'
 
-        emailext(
-            subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            body: """
+            emailext(
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
 Hello,
 
 The CI/CD pipeline completed successfully.
 
-Job Name : ${env.JOB_NAME}
-Build Number : ${env.BUILD_NUMBER}
-
-Status : SUCCESS
+Job Name      : ${env.JOB_NAME}
+Build Number  : ${env.BUILD_NUMBER}
+Status        : SUCCESS
 
 Build URL:
 ${env.BUILD_URL}
@@ -192,36 +212,38 @@ ${env.BUILD_URL}
 Regards,
 Jenkins
 """,
-            to: "tamilselvanca20@nct.ac.in"
-        )
-    }
+                to: "tamilselvanca20@nct.ac.in"
+            )
+        }
 
-    failure {
-        echo 'Deployment failed. Rolling back...'
+        failure {
+    echo 'Deployment failed. Rolling back to previous stable version...'
 
-        sh '''
+    sh '''
         docker stop react-prod || true
         docker rm react-prod || true
 
         docker run -d \
-        --name react-prod \
-        -p 8081:80 \
-        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest || true
-        '''
+          --name react-prod \
+          -p 8081:80 \
+          808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:stable || true
+    '''
 
-        emailext(
-            subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            body: """
+    emailext(
+        subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+        body: """
 Hello,
 
 The CI/CD pipeline failed.
 
-Rollback has been executed.
+Rollback has been executed successfully.
+
+Production has been restored to the previous stable image.
 
 Job Name : ${env.JOB_NAME}
 Build Number : ${env.BUILD_NUMBER}
 
-Status : FAILED
+Status : FAILED (Rollback Successful)
 
 Build URL:
 ${env.BUILD_URL}
@@ -229,7 +251,8 @@ ${env.BUILD_URL}
 Regards,
 Jenkins
 """,
-            to: "tamilselvanca20@nct.ac.in"
-        )
+        to: "tamilselvanca20@nct.ac.in"
+    )
+}
     }
 }
