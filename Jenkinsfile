@@ -120,7 +120,7 @@ pipeline {
 
                 docker run -d \
                   --name react-prod \
-                  -p 8080:80 \
+                  -p 8081:80 \
                   808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
                 '''
             }
@@ -132,7 +132,7 @@ pipeline {
                 sh '''
                 sleep 10
 
-                STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:8080)
+                STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:8081)
 
                 if [ "$STATUS" -eq 200 ]; then
                     echo "Application is healthy"
