@@ -16,6 +16,15 @@ pipeline {
                 sh 'npm install'
             }
         }
+        stage('SonarQube Analysis') {
+            steps {
+        withSonarQubeEnv('SonarQube') {
+            sh '''
+            sonar-scanner
+            '''
+        }
+    }
+}
 
         stage('Build React') {
             steps {
