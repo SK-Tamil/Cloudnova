@@ -83,6 +83,21 @@ stage('Push to ECR') {
         }
     }
 }
+stage('Deploy to Development') {
+    steps {
+        sh '''
+        docker stop react-app || true
+        docker rm react-app || true
+
+        docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+
+        docker run -d \
+        --name react-app \
+        -p 80:80 \
+        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+        '''
+    }
+}
     }
 
     post {
