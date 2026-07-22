@@ -66,83 +66,87 @@ pipeline {
                 '''
             }
         }
-stage('Push to ECR') {
-    steps {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-ecr']]) {
-            sh '''
-            aws ecr get-login-password --region ap-southeast-1 | \
-            docker login --username AWS \
-            --password-stdin 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com
 
-            docker tag react-app:latest \
-            808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+        stage('Push to ECR') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-ecr']]) {
+                    sh '''
+                    aws ecr get-login-password --region ap-southeast-1 | \
+                    docker login --username AWS \
+                    --password-stdin 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com
 
-            docker push \
-            808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
-            '''
+                    docker tag react-app:latest \
+                    808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+
+                    docker push \
+                    808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+                    '''
+                }
+            }
         }
-    }
-}
-stage('Deploy to Development') {
-    steps {
-        sh '''
-        docker stop react-app || true
-        docker rm react-app || true
 
-        docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+        stage('Deploy to Development') {
+            steps {
+                sh '''
+                docker stop react-app || true
+                docker rm react-app || true
 
-        docker run -d \
-        --name react-app \
-        -p 80:80 \
-        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
-        '''
-    }
-}
-stage('Manual Approval') {
-    steps {
-        timeout(time: 10, unit: 'MINUTES') {
-            input message: 'Deploy to Production?', ok: 'Deploy'
+                docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+
+                docker run -d \
+                  --name react-app \
+                  -p 80:80 \
+                  808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+                '''
+            }
         }
-    }
-stage('Deploy to Production') {
-    steps {
-        echo 'Deploying to Production...'
-        sh '''
-        docker stop react-prod || true
-        docker rm react-prod || true
 
-        docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+        stage('Manual Approval') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    input message: 'Deploy to Production?', ok: 'Deploy'
+                }
+            }
+        }
 
-        docker run -d \
-        --name react-prod \
-        -p 8080:80 \
-        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
-        '''
-    }
-}
+        stage('Deploy to Production') {
+            steps {
+                echo 'Deploying to Production...'
+                sh '''
+                docker stop react-prod || true
+                docker rm react-prod || true
 
-stage('Health Check') {
-    steps {
-        echo 'Checking application health...'
-        sh '''
-        sleep 10
+                docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
 
-        STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost)
+                docker run -d \
+                  --name react-prod \
+                  -p 8080:80 \
+                  808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+                '''
+            }
+        }
 
-        if [ "$STATUS" -eq 200 ]; then
-            echo "Application is healthy"
-        else
-            echo "Health check failed"
-            exit 1
-        fi
-        '''
+        stage('Health Check') {
+            steps {
+                echo 'Checking application health...'
+                sh '''
+                sleep 10
 
-    }
-}
-}
+                STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:8080)
+
+                if [ "$STATUS" -eq 200 ]; then
+                    echo "Application is healthy"
+                else
+                    echo "Health check failed"
+                    exit 1
+                fi
+                '''
+            }
+        }
     }
 
     post {
+
         always {
             archiveArtifacts artifacts: 'reports/*', fingerprint: true
         }
