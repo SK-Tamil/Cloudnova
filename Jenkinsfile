@@ -104,6 +104,41 @@ stage('Manual Approval') {
             input message: 'Deploy to Production?', ok: 'Deploy'
         }
     }
+stage('Deploy to Production') {
+    steps {
+        echo 'Deploying to Production...'
+        sh '''
+        docker stop react-prod || true
+        docker rm react-prod || true
+
+        docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+
+        docker run -d \
+        --name react-prod \
+        -p 8080:80 \
+        808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+        '''
+    }
+}
+
+stage('Health Check') {
+    steps {
+        echo 'Checking application health...'
+        sh '''
+        sleep 10
+
+        STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost)
+
+        if [ "$STATUS" -eq 200 ]; then
+            echo "Application is healthy"
+        else
+            echo "Health check failed"
+            exit 1
+        fi
+        '''
+
+    }
+}
 }
     }
 
