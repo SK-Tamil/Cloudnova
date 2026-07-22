@@ -47,6 +47,12 @@ stage('Run Tests') {
         }
 
     }
+  stage('Docker Build') {
+    steps {
+        echo 'Building Docker Image...'
+        sh 'docker build -t react-app:latest .'
+    }
+}
 
     post {
         success {
