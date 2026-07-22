@@ -73,10 +73,14 @@ pipeline {
                     sh '''
                     aws ecr get-login-password --region ap-southeast-1 | \
                     docker login --username AWS \
-                    --password-stdin 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com
+                     --password-stdin 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com
+                    
+                    docker tag react-app:latest 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:${BUILD_NUMBER}
 
                     docker tag react-app:latest \
                     808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
+
+                    docker push 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:${BUILD_NUMBER}
 
                     docker push \
                     808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:latest
@@ -156,7 +160,22 @@ pipeline {
         }
 
         failure {
-            echo 'Build Failed'
+            
+        echo "Deployment failed. Rolling back..."
+
+        sh '''
+        docker stop react-prod || true
+        docker rm react-prod || true
+
+        docker pull 808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:${BUILD_NUMBER-1}
+
+        docker run -d \
+          --name react-prod \
+          -p 8081:80 \
+          808872801655.dkr.ecr.ap-southeast-1.amazonaws.com/react-cicd:${BUILD_NUMBER-1}
+        '''
+    
+
         }
     }
 }
